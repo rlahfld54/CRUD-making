@@ -59,6 +59,20 @@ app.get("/login", (req, res) => {
   });
 });
 
+app.post("/signup", (req, res) => {
+  let users = req.body;
+  console.log(users);
+  connection.query(
+    `INSERT INTO Users (userid,email,password,birthday,gender,createtime,updatetime)
+    VALUES ('${users.userId}','${users.email}','${users.password}','${users.birthday}','${users.gender}','${users.createtime}','${users.updatetime}')`,
+    (error, rows) => {
+      if (error) throw error;
+      console.log("유저 정보 전달 : ", rows);
+      res.send(rows);
+    }
+  );
+});
+
 // CRUD
 // 글 조회
 app.get("/database", (req, res) => {
