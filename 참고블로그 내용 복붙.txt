@@ -1,0 +1,414 @@
+▶회원가입 & 로그인 기능 구현
+이번 글에서는 지난 번에 연결하고 구성해 두었던 데이터베이스와 users 테이블을 이용하여 회원가입과 로그인 기능을 구현한 부분의 코드를 회고해 보려고 합니다😀!
+
+ 
+
+🔎 회원가입
+📌 회원가입 페이지 화면 구성
+
+회원가입 페이지 화면 구성
+사용자 아이디, 사용자 이메일, 비밀번호, 비밀번호 확인, 생일, 성별 값을 입력하고 가입하기 버튼을 누르도록 화면을 구성했습니다.
+
+ 
+
+📌 클라이언트와 서버가 주고 받아야 하는 내용들
+클라이언트 → 서버 : 사용자 아이디, 사용자 이메일, 비밀번호, 생일(년, 월, 일), 성별
+
+서버 → 클라이언트 : result( { 'successs' || 'dup-userid' } )
+
+ 
+
+클라이언트는 { userid, password, email, year, month, day, gender } 를 넘기면
+
+서버에서는 이 정보들을 데이터베이스에 있는 기존 정보들과 비교를 해서
+
+userid(PK로 설정)가 중복된 것이 없다면 'success'라는 값을 보내주고
+
+중복되었다면 'dup-userid' 라는 값을 보내도록 했습니다.
+
+ 
+
+만약 클라이언트에서 값들이 제대로 넘어가지 못했다면 서버는 클라이언트에게 fail 값을 보내도록 했습니다.
+
+ 
+
+📌 server.js 파일 내용 추가
+post도 해야하기 때문에 우선 바디파서 미들웨어를 설정해 주었습니다.
+
+그리고 api를 위한 router도 설정해 줍니다!
+
+ 
+
+📄 server.js 파일
+
+const express = require('express');
+const path = require('path');
+const app = express();
+
+// ...
+
+const bodyparser = require('body-parser');
+app.use(bodyparser.urlencoded({ extended: false }));
+app.use(bodyparser.json());
+
+const api = require('./src/api/index.js');
+app.use('/api', api);
+
+// ...
+아래는 server.js 파일 전체 코드입니다.
+
+const express = require('express');
+const path = require('path');
+const app = express();
+
+// 메인 페이지 접속시 html 응답하는 방법
+
+// 미들웨어: html, css, js, img 파일들이 담긴 곳 명시
+app.use(express.static(path.join(__dirname, 'public')));
+
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public/index.html'));
+});
+
+// 바디파서 미들웨어 설정
+const bodyparser = require('body-parser');
+app.use(bodyparser.urlencoded({ extended: false }));
+app.use(bodyparser.json());
+
+const moment = require('moment');
+const logger = (req, res, next) => {
+  req.reqtime = moment().format('YYYY-MM-DD HH:mm:ss.sss');
+  console.log(`------> [${req.reqtime}][${req.method}${req.url} call!]`);
+
+  // 콘솔창에 색상을 변경해주는 이스케이브 문자를 추가해보자(마지막엔 원래 상태로)
+  console.log(
+    '\x1b[32m%s',
+    `===========> [${req.reqtime}][${req.method}]${req.url} call!`,
+    '\x1b[37m'
+  );
+  req.query &&
+    Object.keys(req.query).length &&
+    console.log(`    ====> request query = `, req.query);
+  req.body &&
+    Object.keys(req.body).length &&
+    console.log(`     ====> request body = `, req.body);
+
+  next(); // 미들웨어가 처리를 하고 실제 api를 호출하기 위함
+};
+
+app.use(logger); // 미들웨어 적용
+
+const api = require('./src/api/index');
+app.use('/api', api);
+
+const http = require('http').createServer(app);
+http.listen(8090, () => {
+  console.log('server listen start: 8090');
+});
+ 
+
+📌 클라이언트 → 서버
+위에서 말했다싶이 사용자가 회원가입을 하기 위해 입력한 정보들을 서버에게 보내서 비교 과정을 거치고 그 결과를 받으면 됩니다.
+
+ 
+
+가입하기 버튼을 누르게 되면 이 정보들이 서버에게 가도록 해봅시다.
+
+ 
+
+📄 Regist.jsx 파일
+
+const onClickRegist = () => {
+  // 유효성 검사 하고...
+  
+  const params = { userid, password, email, year, meonth, day, gender };
+  
+  axios.post('/api/regist', params).then(res => {
+    const { result } = res.data;
+    if (result === 'successs') {
+      alert('회원가입에 성공하셨습니다. 로그인 페이지로 이동합니다.');
+      window.location.href = '/';
+    } else if (result === 'dup-userid') {
+      alert('중복된 아이디입니다. 아이디를 변경하세요.')
+    } else {
+      alert('회원가입에 실패하셨습니다.');
+    }
+  });
+};
+클라이언트는 params라는 객체에 사용자가 입력한 회원가입 정보들을 담아서 서버에게 보내게 됩니다.
+
+.then() 에는 응답을 받고 그 응답에 따라 그 이후를 처리하는 부분인데요.
+
+ 
+
+만약 서버가 result를 'success'라고 보낸다면 즉 성공적으로 회원가입이 되었다고 말해주면 클라이언트는 그걸 듣고 사용자에게 회원가입이 완료되었다고 알려주면서 홈화면으로 이동합니다.
+
+ 
+
+만약 서버가 result를 'dup-userid'라고 보낸다면 즉 중복된 사용자 아이디를 입력했다고 말해주면 클라이언트는 그걸 듣고 사용자에게 그렇다고 안내를 해주면 됩니다.
+
+ 
+
+📌 서버 → 클라이언트
+서버는 클라이언트로부터 받은 값들을 검토해서 검토 결과를 클라이언트에게 다시 보내주기만 하면 됩니다.
+
+ 
+
+방금 위에서 /api/regist 로 데이터 보냈었죠?
+
+그리고 위에서 라우팅 처리한 걸로 파일 하나 만들어서 api 만드는 걸 시작할 겁니다.
+
+ 
+
+📄 src/api/index.js 파일
+
+const express = require('express');
+const router = express.Router();
+const mysql = require('./mysql');
+
+router.post('/regist', async (req, res) => {
+  
+  // 사용자 아이디 중복 체크
+  // 사용자가 입력한 값이 데이터베이스 내부에 존재한다면 값을 받아오고
+  // 없다면 받아오는 값이 없을 것
+  const user = await mysql.checkUser(req.body);
+  if (user.length > 0) {
+    // 중복O
+    res.send({result: 'dup-userid'});
+  } else {
+    // 중복X
+    const result = await mysql.insertUser(req.body);
+    
+    if (result) {
+      res.send({ result: 'success' });
+    } else {
+      res.send({ result: 'fail' });
+    }
+  }
+});
+그리고 비동기 처리를 반드시 해주어야 합니다.
+
+만약 데이터를 받아오지도 않았는데 멋대로 코드를 실행했다가 당연히 받은 게 없는 채로 코드가 실행되면
+
+에러가 발생하겠죠?
+
+ 
+
+그러므로 꼭 비동기 처리를 하여 받은 시점에만 실행할 수 있도록 처리를 해줍니다.💡
+
+ 
+
+참고로 데이터베이스에 insert, update, delete를 했을 때 그 쿼리문이 성공적으로 적용되었을 때와 실패했을 때의 반환값은 아래와 같습니다.
+
+ 	성공	실패
+insert	null이 반환	에러 발생
+update	1 반환	0 반환
+delete	삭제한 row수를 반환	에러 발생
+ 
+
+위 코드에서 checkUser 와 insertUser는 이제 정의해 줄겁니다.
+
+미리 이야기 하자면 이 메서드들을 통해 데이터베이스 정보들을 조회하고 그 결과값을 리턴 받는 과정이 실행될 겁니다.
+
+ 
+
+📌 src/api/maria.js
+이전 포스팅에서 데이터베이스 연결에 대해 다뤘었습니다.
+
+이제는 미리 만들어 둔 Maria = {} 라는 객체에 메서드를 만들어 담을 것이고 이를 위 코드처럼 사용하여 데이터들을 조회하고 리턴값을 받아낼 겁니다.
+
+ 
+
+앞으로 계속 데이터베이스 쿼리가 필요할 때마다 여기에 작성을 해주어 api 파일에서 사용할 겁니다.
+
+ 
+
+우선 바로 위 코드에서 사용한 checkUser 와 insertUser를 만들어보겠습니다.
+
+ 
+
+그런데 이런식으로 메서드를 하나씩 생성하게 되면 분명히 데이터베이스를 연결하고 쿼리문을 날리고 값을 받아오는 과정에서 반복되는 부분이 발생할 겁니다.
+
+이부분에 대해서는 미리 함수로 정의하고 시작합니다.
+
+ 
+
+📄 src/api/maria.js 파일
+
+// ...
+
+Maria = {};
+
+// 중복되는 부분을 함수로 정의
+const queryFunc = (sql) => {
+  return new Promise((resolve, reject) => {
+    const connection = mysql.createConnection(conn);
+    connection.connect();
+    
+    connection.query(sql, (err, results) => {
+      if (err) {
+        console.trace(err);
+        reject(err);
+      } else {
+        connection.end();
+        resolve(results);
+      }
+    });
+  });
+}
+
+Maria.checkUser = (params) => {
+  return new Promise(async (resolve) => {
+    const { userid } = params;
+    const sql = `selec * from users where userid='${userid}';`;
+    
+    const result = await queryFunc(sql);
+    resolve(result);
+  });
+}
+
+Maria.insertUser = (parmas) => {
+  return new Promise(async (resolve) => {
+    const { userid, password, email, year, month, day, gender } = params;
+    const birthday = year + month + day;
+    const sql = `insert into users (userid, password, eamil, birthday, gender, updatetime, createtime) values ('${userid}', '${password}', '${email}', '${birthday}', '${gender}', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);`;
+    
+    const result = queryFunc(sql);
+    resolve(result);
+  });
+};
+ 
+
+이것으로 회원가입 기능 구현은 끝입니다!
+
+ 
+
+📌 테스트해보기
+구현이 잘 되었는지 회원가입을 직접 해보고 서버 콘솔로 클라이언트로부터 데이터가 잘 받아졌는지 혹은 데이터베이스에 데이터가 잘 삽입이 되었는지 이런 것들을 확인해 보겠습니다.
+
+ 
+
+기존 데이터베이스 데이터에 없는 아이디를 입력했을 경우 제대로 회원가입이 이뤄지는 것을 확인할 수 있었습니다.
+
+
+회원가입 성공시 뜨는 alert창
+
+데이터베이스에 들어간 새로운 사용자 정보
+
+서버 콘솔
+ 
+
+반면에 이미 데이터베이스에 존재하는 아이디로 회원가입을 시도했을 경우를 살펴보겠습니다.
+
+
+기존 데이터베이스에 존재하는 아이디로 회원가입을 시도했을 때 뜨는 alert창
+ 
+
+회원가입이 상황에 따라 잘 이뤄지는 것을 확인할 수 있었습니다 :)
+
+ 
+
+ 
+
+
+ 
+
+ 
+
+🔎 로그인
+📌 로그인 페이지 구성
+
+로그인 페이지 구성
+ 
+
+📌 클라이언트와 서버가 주고 받아야 하는 내용들
+클라이언트 → 서버 : 사용자가 입력한 아이디, 비밀번호 값
+
+서버 → 클라이언트 : 클라이언트가 보낸 값이 기존 데이터베이스에 존재하는지, 값이 일치하는지 비교해서 결과값
+
+ 
+
+클라이언트는 사용자가 입력한 아이디와 비밀번호 값을 서버에게 보냅니다.
+
+서버는 클라이언트로부터 받은 값으로 기존 데이터베이스에서 그 사용자가 있는지 없는지를 찾아보고 결과를 보내주게 됩니다.
+
+ 
+
+📌 클라이언트 → 서버
+화면에서 사용자가 아이디와 비밀번호를 입력하고 로그인 버튼을 누르면 그 값들이 서버에게 가도록 합니다.
+
+ 
+
+📄 Login.jsx 파일
+
+const onClickLogin = () => {
+  // 유효성 검사 하고...
+  
+  axios.post('/api/login', { userid: userid, password: password })
+    .then(res => {
+      const { result } = res.data;
+      if (result === 'success') {
+        alert('로그인 성공');
+        window.location.href = '/home';
+      } else {
+        alert('로그인 실패');
+      }
+    });
+};
+ 
+
+📌 서버 → 클라이언트
+서버는 클라이언트가 보내온 값을 가지고 기존 데이터베이스에 그 회원 정보가 일치하는 데이터가 있다면 success를 보내주면 됩니다.
+
+ 
+
+📄 src/api/index.js 파일
+
+router.post('/login', async (req, res) => {
+  const { userid, password } = req.body;
+  
+  const results = await mysql.findUser(req.body);
+  
+  if (results && results.length > 0) {
+    // 입력한 정보가 DB에 있다면
+    res.send({ result: 'success' });
+  } else {
+    res.send({ result: 'fail' });
+  }
+});
+클라이언트가 보낸 값으로 사용자 정보를 찾았을 때 그 사용자 정보가 정말로 제대로 있는 경우에만 success 결과를 보내기 위해 results && results.length > 0라고 구체적으로 조건을 달아주었습니다.
+
+ 
+
+이번에는 maria.js 파일로 가서 findUser라는 메서드를 만들어줘야겠죠?
+
+ 
+
+📌 src/api/maria.js 파일
+클라이언트가 보낸 사용자 아이디와 비밀번호 값을 가지고 데이터베이스에서 데이터를 찾는 쿼리문을 통해 데이터를 찾아봅시다.
+
+ 
+
+📄 src/api/maria.js 파일
+
+Maria.findUser = (params) => {
+  return new Promise(async (resolve) => {
+    const { userid, password } = params;
+    const sql = `select * from users where userid='${userid}' and password='${password}';`;
+    
+    const result = queryFunc(sql);
+    resolve(result);
+  });
+};
+ 
+
+이것으로 로그인 기능 구현도 끝났습니다!
+
+ 
+
+📌 테스트해보기
+위에서 테스트로 회원가입을 한 정보로 로그인도 잘 되는지 테스트를 해 보겠습니다.
+
+
+성공적으로 로그인 했을 때 서버 콘솔
+데이터베이스와의 연결로 로그인도 성공적으로 되는 것을 확인할 수 있었습니다.
