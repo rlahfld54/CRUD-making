@@ -108,9 +108,11 @@ app.post("/signup", (req, res, next) => {
         if (error) throw error;
         else {
           console.log("회원가입을 성공했습니다.");
-          res.send("회원가입 성공");
+          res.send("successs");
         }
       });
+    } else if (rows.length > 0) {
+      res.send("dup-userid");
     }
   });
 });
