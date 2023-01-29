@@ -60,21 +60,32 @@ app.get("/dashboard", (req, res) => {
 });
 
 // 로그인
-app.get("/login", (req, res) => {
+app.post("/login", (req, res, next) => {
   let loginUser = req.body;
   console.log(loginUser);
 
-  // 일치하는 유저가 있는지 검색 중..
-  connection.query(
-    `SELECT * from Users Where userid ='${loginUser.userId}' And password = '${loginUser.password}'`,
-    (error, rows) => {
-      if (error) {
-        throw error;
-      }
-
-      res.send("유저를 찾았습니다.");
+  const hash = bcrypt.hashSync(loginUser.password, saltRounds);
+  bcrypt.compare(loginUser.password, hash, (err, same) => {
+    if (err) {
+      return next(err);
     }
-  );
+    console.log("로그인 성공 시 쿠키 생성"); //=> true
+    // 로그인 성공 시 쿠키 생성
+    // js에서 접근하는 상황을 방지하기 위해 httponly 옵션을 설정..흠...
+    if (same) {
+      res.cookie("user", loginUser.userId, {
+        expires: new Date(Date.now() + 900000),
+        httpOnly: true,
+      });
+      res.send("success");
+    }
+  });
+});
+
+// 로그아웃
+app.get("/logout", (req, res) => {
+  console.log("로그아웃함");
+  res.send();
 });
 
 // 회원가입
@@ -82,34 +93,37 @@ app.post("/signup", (req, res, next) => {
   // 클라이언트에서 받은 회원가입 데이터가 이미 저장되어있는지 확인해야한다.
   // 기존 정보들과 비교해서 중복 된 것이 없다면 삽입쿼리를 실행하고
   // 중복된 유저가 이미 있다면 중복된 유저가 있다고 클라이언트에 알려줘야한다.
-  // 그런데 여기에는 중복체크는 안되어있다.
   // 그리고 암호화를 해준다. crypto 모듈 설치해서 사용
   let users = req.body;
   console.log(users);
-
-  //비밀번호 암호화 하기
-  const hashPassword = bcrypt.genSalt(saltRounds, function (err, salt) {
-    if (err) return next(err);
-    bcrypt.hash(users.password, salt, function (err, hash) {
-      // Store hash in your password DB.
-      if (err) return next(err);
-      users.password = hash;
-      next();
-    });
-  });
 
   var query = `SELECT userId FROM Users WHERE userId ='${users.userId}'`; // 중복 아이디 체크
   connection.query(query, (error, rows) => {
     if (error) throw error;
     if (rows.length == 0) {
-      // sql제대로 연결되고 중복이 없는 경우
-      var query = `INSERT INTO Users (userid,email,password,birthday,gender,createtime,updatetime) VALUES ('${users.userId}','${users.email}','${hashPassword}','${users.birthday}','${users.gender}','${users.createtime}','${users.updatetime}')`;
-      connection.query(query, (error, rows) => {
-        if (error) throw error;
-        else {
-          console.log("회원가입을 성공했습니다.");
-          res.send("successs");
-        }
+      //비밀번호 암호화 하기
+      let hashPassword = {
+        password: "",
+      };
+      bcrypt.genSalt(saltRounds, function (err, salt) {
+        if (err) return next(err);
+        bcrypt.hash(users.password, salt, function (err, hash) {
+          // Store hash in your password DB.
+          if (err) return next(err);
+          console.log("해쉬 : " + hash);
+          hashPassword.password = hash;
+          console.log("해쉬 담음 : " + hashPassword.password);
+          // sql제대로 연결되고 중복이 없는 경우
+          var query = `INSERT INTO Users (userid,email,password,birthday,gender,createtime,updatetime) VALUES ('${users.userId}','${users.email}','${hashPassword.password}','${users.birthday}','${users.gender}','${users.createtime}','${users.updatetime}')`;
+          connection.query(query, (error, rows) => {
+            if (error) {
+              throw error;
+            } else {
+              console.log("회원가입을 성공했습니다.");
+              res.send("success");
+            }
+          });
+        });
       });
     } else if (rows.length > 0) {
       res.send("dup-userid");
