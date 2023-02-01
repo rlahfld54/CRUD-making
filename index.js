@@ -4,25 +4,8 @@ const path = require("path");
 const mysql = require("mysql2");
 const dbconfig = require("./config/database.js");
 const connection = mysql.createConnection(dbconfig);
-// 암호화 라이브러리.. recommended
 const bcrypt = require("bcrypt");
 const saltRounds = 10;
-// const database = [
-//   {
-//     id: 1,
-//     title: "글1",
-//   },
-//   {
-//     id: 2,
-//     title: "글2",
-//   },
-//   {
-//     id: 3,
-//     title: "글3",
-//   },
-// ];
-
-// nodemon 설치했는데 제대로 작동되는지 확인할 것!!
 
 const app = express();
 app.use(bodyParser.json());
@@ -61,6 +44,8 @@ app.get("/dashboard", (req, res) => {
 
 // 로그인
 app.post("/login", (req, res, next) => {
+  // 로그인 후에도 계속 유지가 되어야한다. 그래야 글쓸때 관리자인지, 일반 유저인지,
+  // 로그인 안한 방문자인지 알수 있고 권한도 다르다. 이때 쓰는 것이 Auth임
   let loginUser = req.body;
   console.log(loginUser);
 
@@ -71,10 +56,9 @@ app.post("/login", (req, res, next) => {
     }
     console.log("로그인 성공 시 쿠키 생성"); //=> true
     // 로그인 성공 시 쿠키 생성
-    // js에서 접근하는 상황을 방지하기 위해 httponly 옵션을 설정..흠...
+    // js에서 접근하는 상황을 방지하기 위해 httponly 옵션을 설정...
     if (same) {
       res.cookie("user", loginUser.userId, {
-        expires: new Date(Date.now() + 900000),
         httpOnly: true,
       });
       res.send("success");
@@ -82,8 +66,9 @@ app.post("/login", (req, res, next) => {
   });
 });
 
-// 로그아웃
-app.get("/logout", (req, res) => {
+// 로그아웃  => 로그인과 마찬가지로 post 추천됨
+app.post("/logout", (req, res) => {
+  res.clearCookie("user");
   console.log("로그아웃함");
   res.send();
 });
