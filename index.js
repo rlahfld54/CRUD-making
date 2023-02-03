@@ -1,5 +1,7 @@
 const express = require("express");
 const bodyParser = require("body-parser");
+const cookieParser = require("cookie-parser");
+const cors = require("cors");
 const path = require("path");
 const mysql = require("mysql2");
 const dbconfig = require("./config/database.js");
@@ -10,6 +12,13 @@ const saltRounds = 10;
 const app = express();
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
+app.use(cookieParser());
+app.use(
+  cors({
+    origin: "*", // 출처 허용 옵션
+    credential: "true", // 사용자 인증이 필요한 리소스(쿠키 ..등) 접근
+  })
+);
 connection.connect();
 
 // configuration =========================
@@ -56,12 +65,10 @@ app.post("/login", (req, res, next) => {
     }
     console.log("로그인 성공 시 쿠키 생성"); //=> true
     // 로그인 성공 시 쿠키 생성
-    // js에서 접근하는 상황을 방지하기 위해 httponly 옵션을 설정...
+    // js에서 접근하는 상황을 방지하기 위해 httponly 옵션을 설정을 하면 클라이언트에 전달안된다는데..?ㅋㅋ
     if (same) {
-      res.cookie("user", loginUser.userId, {
-        httpOnly: true,
-      });
-      res.send("success");
+      res.cookie("user", loginUser.userId);
+      res.send();
     }
   });
 });
@@ -115,6 +122,24 @@ app.post("/signup", (req, res, next) => {
     }
   });
 });
+
+// dashboard 글쓰기 기능
+// 글 생성
+app.post("/write", (req, res) => {
+  console.log(req.body);
+  let user = req.body;
+  let query = `INSERT INTO Dashboards (title,content,regdate,userid) VALUES ('${user.title}','${user.contents}','${user.currentTime}','${user.userid}')`;
+  connection.query(query, (error, rows) => {
+    if (error) {
+      throw error;
+    } else {
+      console.log("회원가입을 성공했습니다.");
+      res.send("success");
+    }
+  });
+});
+
+// -------------------------------------------------------------//
 
 // CRUD
 // 글 조회
