@@ -8,3 +8,4 @@ vue-express-mysql
 3. 글쓰기 기능
 
 만드는 과정을 블로그에서 상세하게 보실 수 있습니다.
+블로그 : https://normal-gom-jelly.tistory.com/category/Backend
