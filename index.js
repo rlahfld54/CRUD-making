@@ -15,8 +15,8 @@ app.use(bodyParser.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(
   cors({
-    origin: "*", // 출처 허용 옵션
-    credential: "true", // 사용자 인증이 필요한 리소스(쿠키 ..등) 접근
+    origin: true, // 출처 허용 옵션
+    credential: true, // 사용자 인증이 필요한 리소스(쿠키 ..등) 접근
   })
 );
 connection.connect();
@@ -92,7 +92,10 @@ app.post("/signup", (req, res, next) => {
   var query = `SELECT userId FROM Users WHERE userId ='${users.userId}'`; // 중복 아이디 체크
   connection.query(query, (error, rows) => {
     if (error) throw error;
-    if (rows.length == 0) {
+    if (rows.length > 0) {
+      console.log("이미 등록된 사용자입니다");
+      res.send("dup-userid");
+    } else {
       //비밀번호 암호화 하기
       let hashPassword = {
         password: "",
@@ -117,8 +120,6 @@ app.post("/signup", (req, res, next) => {
           });
         });
       });
-    } else if (rows.length > 0) {
-      res.send("dup-userid");
     }
   });
 });
